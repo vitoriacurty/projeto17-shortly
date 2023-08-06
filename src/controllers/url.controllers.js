@@ -51,3 +51,29 @@ export async function openUrl(req, res) {
         res.status(500).send(err.message)
     }
 }
+
+export async function deleteUrl(req, res) {
+    const { id } = req.params
+
+    const { authorization } = req.headers
+    const token = authorization?.replace("Bearer ", "")
+    if (!token) return res.sendStatus(401)
+
+    try {
+        const session = await db.query(`SELECT * FROM session WHERE token=$1;`, [token])
+        if (session.rowCount === 0) return res.sendStatus(401)
+
+        //se a url nao existir, status 404
+        const url = await db.query(`SELECT "userId" FROM url WHERE id=$1;`, [id])
+        if (url.rowCount === 0) return res.sendStatus(404)
+        //url encurtada não pertence ao usuário
+        const user = await db.query(`SELECT * FROM users WHERE id=$1;`, [session.rows[0].userId])
+        if (user.rowCount === 0) return res.sendStatus(401)
+        //se a url for do usuário, status 204 e excluir a url encurtada
+        await db.query(`DELETE FROM url WHERE id=$1;`, [id])
+
+        res.sendStatus(204)
+    } catch (err) {
+        res.status(500).send(err.message)
+    }
+}

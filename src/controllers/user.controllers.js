@@ -39,3 +39,46 @@ export async function signIn(req, res) {
         res.status(500).send(err.message)
     }
 }
+
+export async function getUsers(req, res) {
+    const { authorization } = req.headers
+    const token = authorization?.replace("Bearer ", "")
+    if (!token) return res.sendStatus(401)
+
+    try {
+        const session = await db.query(`SELECT * FROM session WHERE token=$1;`, [token])
+        if (session.rowCount === 0) return res.sendStatus(401)
+
+        const user = await db.query(`SELECT * FROM users WHERE id=$1;`, [session.rows[0].userId])
+        if (user.rowCount[0] === 0) return res.sendStatus(401)
+
+        const visitsResult = await db.query(
+            `SELECT SUM(url."visitCount") FROM url WHERE "userId"=$1;`,
+            [user.rows[0].id]
+        )
+
+        const visitSum = visitsResult.rows[0].sum || 0;
+
+        const urls = await db.query(`SELECT * FROM url WHERE "userId"=$1;`, [user.rows[0].id])
+
+        const shortenedUrls = urls.rows.map((item) => {
+            return {
+                id: item.id,
+                shortUrl: item.shortUrl,
+                url: item.url,
+                visitCount: item.visitCount
+            }
+        })
+
+        const result = {
+            id: user.rows[0].id,
+            name: user.rows[0].name,
+            visitCount: visitSum,
+            shortenedUrls
+        }
+
+        res.status(200).send(result)
+    } catch (err) {
+        res.status(500).send(err.message)
+    }
+}

@@ -69,6 +69,8 @@ export async function deleteUrl(req, res) {
         //url encurtada não pertence ao usuário
         const user = await db.query(`SELECT * FROM users WHERE id=$1;`, [session.rows[0].userId])
         if (user.rowCount === 0) return res.sendStatus(401)
+        // se o usuário não for o dono da url, status 401
+        if (url.rows[0].userId !== session.rows[0].userId) return res.sendStatus(401)
         //se a url for do usuário, status 204 e excluir a url encurtada
         await db.query(`DELETE FROM url WHERE id=$1;`, [id])
 
